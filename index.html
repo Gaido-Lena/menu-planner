@@ -114,6 +114,15 @@ h1,h2,h3{margin:0;text-wrap:balance}
 .srow small{display:block;color:var(--muted);font-size:12.5px}
 .srow .q{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .srow:hover b{color:var(--accent)}
+.set{display:flex;flex-direction:column;gap:10px;padding:14px}
+.ptab{border-collapse:collapse;width:100%;max-width:520px}
+.ptab th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);text-align:left;padding:0 8px 6px 0;font-weight:600}
+.ptab td{padding:0 8px 6px 0}
+.ptab td:first-child{font-weight:600;white-space:nowrap}
+.rrow{display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:8px;align-items:center;border-top:1px solid var(--line);padding:8px 0}
+.rrow small{display:block;color:var(--muted);font-size:12.5px}
+.crow{display:grid;grid-template-columns:minmax(0,1fr) 70px 30px;gap:6px;align-items:center}
+.crow>.x{grid-column:3}
 .warn{grid-column:1/-1;margin:0 8px 6px;background:var(--warn-bg);color:var(--warn);font-size:12px;font-weight:600;border-radius:6px;padding:3px 8px}
 
 .palette{position:sticky;top:calc(var(--top-h,88px) + 14px);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - var(--top-h,88px) - 30px);overflow:auto}
@@ -216,6 +225,7 @@ legend{font-size:13px;font-weight:700;padding:0 4px}
       <a href="#shopping" data-view="shopping">Покупки</a>
       <a href="#prep" data-view="prep">Заготовки</a>
       <a href="#freezer" data-view="freezer">Морозилка</a>
+      <a href="#settings" data-view="settings">Настройки</a>
     </nav>
   </div>
 </header>
@@ -223,10 +233,14 @@ legend{font-size:13px;font-weight:700;padding:0 4px}
 
 <dialog id="dlg-entry"><form class="dlg" id="entry-form">
   <h3 id="entry-title">Блюдо</h3>
+  <div class="field">Для кого
+    <span class="checks" id="entry-who"></span></div>
   <div class="field">Порций
     <span class="stepper"><button type="button" class="btn sm" data-act="p-minus" aria-label="Меньше порций">−</button>
-    <input class="inp" id="entry-p" type="number" min="0.5" step="0.5" inputmode="decimal">
-    <button type="button" class="btn sm" data-act="p-plus" aria-label="Больше порций">+</button></span>
+    <input class="inp" id="entry-p" type="number" min="0.25" step="0.25" inputmode="decimal">
+    <button type="button" class="btn sm" data-act="p-plus" aria-label="Больше порций">+</button>
+    <button type="button" class="btn sm ghost" data-act="p-auto">По едокам</button></span>
+    <span class="hint" id="entry-p-hint"></span>
   </div>
   <label class="field" for="entry-note">Пометка для меню (кому какой вариант)
     <input id="entry-note" type="text" placeholder="папе и Даше — с курицей"></label>
@@ -274,8 +288,13 @@ legend{font-size:13px;font-weight:700;padding:0 4px}
       <input id="f-base" type="text" list="dl-base" placeholder="картошка, макароны, суп, фастфуд"></label>
     <label class="field" for="f-time">Время приготовления, мин<input id="f-time" type="number" min="0" step="5" inputmode="numeric"></label>
   </div>
-  <div class="field">Кто не ест
-    <span class="checks" id="f-no"></span></div>
+  <div class="two">
+    <div class="field">Кто не ест
+      <span class="checks" id="f-no"></span></div>
+    <div class="field">Обычно для кого (если не для всех)
+      <span class="checks" id="f-who"></span></div>
+  </div>
+  <div class="field"><span class="checks"><label><input type="checkbox" id="f-hm"> не показывать в меню для семейного чата</label></span></div>
   <fieldset><legend>Ингредиенты на 1 порцию</legend>
     <p class="hint">«Накануне» — свежий продукт, который покупается за день до готовки, а не в основную закупку.</p>
     <div id="f-ings"></div>
@@ -315,6 +334,22 @@ legend{font-size:13px;font-weight:700;padding:0 4px}
   </div>
 </form></dialog>
 
+<dialog id="dlg-period"><form class="dlg" id="period-form">
+  <h3>Новый период</h3>
+  <div class="two">
+    <label class="field" for="np-start">Начало<input id="np-start" type="date" required></label>
+    <label class="field" for="np-days">Дней<input id="np-days" type="number" min="7" max="21" inputmode="numeric"></label>
+  </div>
+  <div class="field"><span class="checks"><label><input type="checkbox" id="np-rec"> проставить повторяющиеся блюда</label></span></div>
+  <div class="field" id="np-off-box"><span class="checks"><label><input type="checkbox" id="np-off"> списать из морозилки то, что стояло в плане этого периода:</label></span>
+    <span class="hint" id="np-off-list"></span></div>
+  <p class="hint">Старый план не удаляется: к нему можно вернуться, поставив прежнюю дату начала. Отметки в покупках и заготовках у нового периода свои.</p>
+  <div class="dlg-foot">
+    <button type="button" class="btn ghost" data-act="period-cancel">Отмена</button>
+    <button type="submit" class="btn primary">Начать период</button>
+  </div>
+</form></dialog>
+
 <dialog id="dlg-confirm"><form class="dlg" method="dialog">
   <h3 id="confirm-text">Точно?</h3>
   <div class="dlg-foot"><button class="btn ghost" value="no">Отмена</button><button class="btn primary" value="yes" id="confirm-yes">Да</button></div>
@@ -330,7 +365,7 @@ legend{font-size:13px;font-weight:700;padding:0 4px}
 <script>
 (function(){
 'use strict';
-var MEALS={b:{t:'Завтрак',p:1},l:{t:'Обед',p:1},d:{t:'Ужин',p:3}};
+var MEALS={b:{t:'Завтрак',who:['Даша']},l:{t:'Обед',who:['Мама']},d:{t:'Ужин',who:['Мама','Папа','Даша']}};
 var MEAL_ORDER=['b','l','d'];
 var CATS={protein:'Белок',side:'Гарнир',fiber:'Клетчатка',whole:'Блюдо целиком'};
 var CAT_ORDER=['protein','side','fiber','whole'];
@@ -353,14 +388,17 @@ function safeUrl(u){u=String(u||'').trim();if(!u)return '';if(!/^https?:\/\//i.t
 function setLink(id,url){var a=document.getElementById(id);url=safeUrl(url);if(url){a.href=url;a.hidden=false;}else{a.removeAttribute('href');a.hidden=true;}}
 function cap(s){s=String(s||'').trim();return s?s.charAt(0).toUpperCase()+s.slice(1):s;}
 
-var state={dishes:{items:{}},plan:{start:fmtD(new Date()),days:14,cells:{}},checks:{periods:{}},stock:{items:{}}};
+var state={dishes:{items:{}},plan:{start:fmtD(new Date()),days:14,cells:{},cfg:{coef:{},names:{},cut:[],rec:[]}},checks:{periods:{}},stock:{items:{}}};
 var ui={view:'plan',armed:null,pmeal:'d',dfilter:'all',shopMode:'all',editing:null,dishId:null};
 var sync={status:'loading',auth:'checking',email:'',uid:null,authMsg:'',lastEmail:'',loaded:{},busy:{},dirty:{},ver:{},ops:[],channel:null};
 
 function normalize(k,d){
   d=d||{};
   if(k==='dishes'){if(!d.items||typeof d.items!=='object')d.items={};}
-  if(k==='plan'){if(!d.start)d.start=fmtD(new Date());d.days=Math.min(21,Math.max(7,Math.round(num(d.days))||14));if(!d.cells||typeof d.cells!=='object')d.cells={};}
+  if(k==='plan'){if(!d.start)d.start=fmtD(new Date());d.days=Math.min(21,Math.max(7,Math.round(num(d.days))||14));if(!d.cells||typeof d.cells!=='object')d.cells={};
+    var c=d.cfg&&typeof d.cfg==='object'?d.cfg:(d.cfg={});
+    if(!c.coef||typeof c.coef!=='object')c.coef={};if(!c.names||typeof c.names!=='object')c.names={};
+    if(!Array.isArray(c.cut))c.cut=[];if(!Array.isArray(c.rec))c.rec=[];}
   if(k==='checks'){if(!d.periods||typeof d.periods!=='object')d.periods={};delete d.shop;delete d.prep;}
   if(k==='stock'){if(!d.items||typeof d.items!=='object')d.items={};}
   return d;
@@ -577,13 +615,32 @@ function cell(date,meal,create){
   if(!c[meal]){if(!create)return [];c[meal]=[];}
   return c[meal];
 }
+function sameSet(a,b){return a.length===b.length&&a.every(function(x){return b.indexOf(x)>=0;});}
+function coef(n){var c=num(state.plan.cfg.coef[n]);return c>0?c:1;}
+function menuName(n){return String(state.plan.cfg.names[n]||n);}
+function entryWho(en,meal){
+  var w=Array.isArray(en.who)?EATERS.filter(function(n){return en.who.indexOf(n)>=0;}):[];
+  return w.length?w:MEALS[meal].who;
+}
+function autoP(who){return Math.round(who.reduce(function(sum,n){return sum+coef(n);},0)*100)/100;}
+function entryP(en,meal){var p=num(en.p);return p>0?p:autoP(entryWho(en,meal));}
+function defaultWho(dish,meal){
+  var base=(dish.who&&dish.who.length)?dish.who:MEALS[meal].who;
+  var w=EATERS.filter(function(n){return base.indexOf(n)>=0&&(dish.no||[]).indexOf(n)<0;});
+  return w.length?w:base;
+}
+function newEntry(dish,id,meal,who){
+  var en={d:id},w=(who&&who.length)?who:defaultWho(dish,meal);
+  if(!sameSet(w,MEALS[meal].who))en.who=w.slice();
+  return en;
+}
 function entries(){
   var out=[];
   dayList().forEach(function(date,di){
     MEAL_ORDER.forEach(function(m){
       cell(date,m).forEach(function(en,i){
         var dish=state.dishes.items[en.d];
-        if(dish)out.push({date:date,di:di,meal:m,i:i,en:en,dish:dish,p:num(en.p)||MEALS[m].p});
+        if(dish)out.push({date:date,di:di,meal:m,i:i,en:en,dish:dish,p:entryP(en,m)});
       });
     });
   });
@@ -687,6 +744,33 @@ function moveAdvice(date,meal,i){
   res.bestMove=nearest('move');res.bestSwap=nearest('swap');
   return res;
 }
+function isCount(u){return String(u||'').toLowerCase().replace('.','').trim()==='шт';}
+/* Whole products that are cut into parts (a chicken gives 2 fillets, 2 thighs ...):
+   how many whole ones the plan needs and which parts are left over. */
+function cutPlan(){
+  var rules=(state.plan.cfg.cut||[]).filter(function(r){return r&&String(r.whole||'').trim();});
+  if(!rules.length)return [];
+  var need={};
+  entries().forEach(function(e){
+    (e.dish.ings||[]).forEach(function(ing){
+      if(ing.late||!isCount(ing.u))return;
+      var pp=e.p-(e.cov&&covers(e.dish,ing)?e.cov:0);if(pp<=0)return;
+      var n=String(ing.n||'').toLowerCase().trim();
+      need[n]=(need[n]||0)+num(ing.q)*pp;
+    });
+  });
+  var out=[];
+  rules.forEach(function(r){
+    var parts=(r.parts||[]).filter(function(x){return String(x.n||'').trim()&&num(x.q)>0;}),N=0;
+    parts.forEach(function(x){var nd=need[String(x.n).toLowerCase().trim()]||0;if(nd>0)N=Math.max(N,Math.ceil(nd/num(x.q)-0.03));});
+    if(N<1)return;
+    out.push({whole:String(r.whole).trim().toLowerCase(),N:N,parts:parts.map(function(x){
+      var key=String(x.n).toLowerCase().trim(),nd=Math.max(0,Math.ceil((need[key]||0)-0.05));
+      return {n:key,need:nd,have:N*num(x.q),left:N*num(x.q)-nd};
+    })});
+  });
+  return out;
+}
 function shoppingGroups(mode){
   var groups={},order=[],lateOrder=[];
   entries().forEach(function(e){
@@ -710,12 +794,30 @@ function shoppingGroups(mode){
   });
   lateOrder.sort();
   var hasLate=lateOrder.length>0;
-  return order.concat(lateOrder).map(function(gk){
+  var cuts=mode==='all'&&groups.all?cutPlan():[];
+  cuts.forEach(function(c){
+    var from={};
+    c.parts.forEach(function(x){
+      if(x.need<=0)return;
+      delete groups.all.items[x.n+'|шт'];delete groups.all.items[x.n+'|шт.'];
+      from[x.n+': нужно '+x.need+' из '+x.have]=true;
+    });
+    groups.all.items['cut|'+c.whole]={key:'cut|'+c.whole,name:c.whole+' целая, на разделку',unit:'шт',q:c.N,from:from};
+  });
+  var res=order.concat(lateOrder).map(function(gk){
     var g=groups[gk];
     if(hasLate&&gk==='all')g.title='Основная закупка';
     g.list=Object.keys(g.items).map(function(k){return g.items[k];}).sort(function(a,b){return a.name.localeCompare(b.name,'ru');});
     return g;
   });
+  res.cuts=cuts;
+  return res;
+}
+function cutNotes(cuts){
+  return (cuts||[]).map(function(c){
+    var left=c.parts.filter(function(x){return x.left>0;}).map(function(x){return x.n+' — '+x.left+' шт';});
+    return left.length?'После разделки ('+c.whole+', '+c.N+' шт) останется: '+left.join(', ')+'.':'';
+  }).filter(Boolean);
 }
 function actWhen(a){return String(a.t==null?'':a.t);}
 function prepBlocks(){
@@ -741,7 +843,8 @@ function prepBlocks(){
       }
     });
   });
-  return order.map(function(vk){
+  var cutBlock=cutPlan().map(function(c){return {key:'разделать|'+c.whole,name:c.whole,unit:'шт',q:c.N,from:{}};});
+  return (cutBlock.length?[{verb:'Разделать',list:cutBlock,ready:true}]:[]).concat(order.map(function(vk){
     var b=blocks[vk];
     b.list=Object.keys(b.items).map(function(k){
       var it=b.items[k];it.from={};
@@ -752,7 +855,7 @@ function prepBlocks(){
       return it;
     }).sort(function(a,b){return a.name.localeCompare(b.name,'ru');});
     return b;
-  });
+  }));
 }
 function datedTasks(){
   var map={},thawRe=/морозилк|разморо|достать/i,freezeRe=/заморо/i;
@@ -787,10 +890,17 @@ function datedTasks(){
     return {date:date,title:dayLabel(date),list:byDate[date].sort(function(a,b){return a.name.localeCompare(b.name,'ru');})};
   });
 }
-function entryLine(date,meal){
+function slotSummary(date,meal){
+  return cell(date,meal).map(function(en){var d=state.dishes.items[en.d];return d?(d.e?d.e+' ':'')+d.name:'';}).filter(Boolean).join(' + ');
+}
+/* One menu line. With `eater` only that person's dishes; dishes marked "not in the chat menu" are skipped. */
+function entryLine(date,meal,eater){
   return cell(date,meal).map(function(en){
-    var d=state.dishes.items[en.d];if(!d)return '';
-    return (d.e?d.e+' ':'')+d.name+(en.n?' ('+en.n+')':'');
+    var d=state.dishes.items[en.d];if(!d||d.hm)return '';
+    var who=entryWho(en,meal);
+    if(eater&&who.indexOf(eater)<0)return '';
+    var note=en.n||(!eater&&!sameSet(who,MEALS[meal].who)?who.map(menuName).join(', '):'');
+    return (d.e?d.e+' ':'')+d.name+(note?' ('+note+')':'');
   }).filter(Boolean).join(' + ');
 }
 function menuText(){
@@ -800,17 +910,55 @@ function menuText(){
     t+='\n📅 Неделя '+(i+1)+' ('+range(w[0],w[w.length-1])+')\n';
     w.forEach(function(d){t+=wd(d)+' ('+dm(d)+'): '+(entryLine(d,'d')||'—')+'\n';});
   });
-  [['b','🍳 ЗАВТРАКИ ДАША'],['l','🥣 ОБЕДЫ ЛЕНА']].forEach(function(m){
-    if(!days.some(function(d){return entryLine(d,m[0]);}))return;
-    t+='\n'+m[1]+'\n';
-    ws.forEach(function(w,i){
-      var ls=w.filter(function(d){return entryLine(d,m[0]);});
-      if(!ls.length)return;
-      if(ws.length>1)t+='Неделя '+(i+1)+'\n';
-      ls.forEach(function(d){t+=wd(d)+' ('+dm(d)+'): '+entryLine(d,m[0])+'\n';});
+  [['b','🍳 ЗАВТРАКИ'],['l','🥣 ОБЕДЫ']].forEach(function(m){
+    EATERS.forEach(function(who){
+      if(!days.some(function(d){return entryLine(d,m[0],who);}))return;
+      t+='\n'+m[1]+' '+menuName(who).toUpperCase()+'\n';
+      ws.forEach(function(w,i){
+        var ls=w.filter(function(d){return entryLine(d,m[0],who);});
+        if(!ls.length)return;
+        if(ws.length>1)t+='Неделя '+(i+1)+'\n';
+        ls.forEach(function(d){t+=wd(d)+' ('+dm(d)+'): '+entryLine(d,m[0],who)+'\n';});
+      });
     });
   });
   return t;
+}
+
+/* ---------- recurring dishes, new period ---------- */
+function applyRecurring(){
+  var added=0;
+  (state.plan.cfg.rec||[]).forEach(function(r){
+    var dish=state.dishes.items[r.d];if(!dish||!MEALS[r.meal])return;
+    dayList().forEach(function(date){
+      if((r.days||[]).indexOf(parseD(date).getDay())<0)return;
+      if(cell(date,r.meal).some(function(en){return en.d===r.d;}))return;
+      var en=newEntry(dish,r.d,r.meal,r.who);en.r=1;
+      cell(date,r.meal,true).push(en);added++;
+    });
+  });
+  return added;
+}
+function recText(r){
+  var d=state.dishes.items[r.d];
+  var days=[1,2,3,4,5,6,0].filter(function(x){return (r.days||[]).indexOf(x)>=0;}).map(function(x){return WD[x].toLowerCase();}).join(', ');
+  return {name:d?(d.e?d.e+' ':'')+d.name:'(блюдо удалено)',sub:(MEALS[r.meal]?MEALS[r.meal].t.toLowerCase():'')+' · '+days+' · '+((r.who&&r.who.length)?r.who.join(', '):'как обычно')};
+}
+function usedStock(){
+  var used={};
+  entries().forEach(function(e){if(e.cov>0)used[e.en.d]=(used[e.en.d]||0)+e.cov;});
+  return used;
+}
+function writeOff(used){
+  Object.keys(used).forEach(function(id){
+    var left=used[id];
+    stockList().forEach(function(x){
+      if(x.dish!==id||left<=0)return;
+      var it=state.stock.items[x.id],take=Math.min(num(it.p)||0,left);
+      it.p=Math.round((num(it.p)-take)*100)/100;left-=take;
+      if(it.p<=0)delete state.stock.items[x.id];
+    });
+  });
 }
 
 /* ---------- render ---------- */
@@ -827,6 +975,7 @@ function render(){
   else if(ui.view==='shopping')html=renderShop();
   else if(ui.view==='prep')html=renderPrep();
   else if(ui.view==='freezer')html=renderFreezer();
+  else if(ui.view==='settings')html=renderSettings();
   else html=renderPlan();
   view.innerHTML=html;
   fillDatalists();
@@ -834,9 +983,12 @@ function render(){
 function chipHTML(e,date,meal,i){
   var d=state.dishes.items[e.d];
   if(!d)return '';
-  var p=num(e.p)||MEALS[meal].p;
-  var extra=(ui._cov&&ui._cov[date+meal+i]?'<small class="frost" title="Из морозилки">❄</small>':'')+(p!==MEALS[meal].p?'<small>×'+String(p).replace('.',',')+'</small>':'')+(e.n?'<small class="note">'+esc(e.n)+'</small>':'');
-  return '<div role="button" tabindex="0" class="chip'+(d.nw?' new':'')+'" draggable="true" data-cat="'+esc(d.cat)+'" data-act="entry" data-date="'+date+'" data-meal="'+meal+'" data-i="'+i+'" title="Порции и пометка">'+
+  var who=entryWho(e,meal),p=entryP(e,meal);
+  var extra=(ui._cov&&ui._cov[date+meal+i]?'<small class="frost" title="Из морозилки">❄</small>':'')+
+    (!sameSet(who,MEALS[meal].who)?'<small>'+esc(who.join(', '))+'</small>':'')+
+    (num(e.p)>0&&p!==autoP(who)?'<small>×'+String(p).replace('.',',')+'</small>':'')+
+    (e.n?'<small class="note">'+esc(e.n)+'</small>':'');
+  return '<div role="button" tabindex="0" class="chip'+(d.nw?' new':'')+'" draggable="true" data-cat="'+esc(d.cat)+'" data-act="entry" data-date="'+date+'" data-meal="'+meal+'" data-i="'+i+'" title="Кто ест, порции, перенос">'+
     '<span>'+esc((d.e?d.e+' ':'')+d.name)+'</span>'+extra+'</div>';
 }
 function renderPlan(){
@@ -868,10 +1020,10 @@ function renderPlan(){
     });
   }else pal='<div class="pcards">'+list.map(cardHTML).join('')+'</div>';
   var armed=ui.armed&&state.dishes.items[ui.armed];
-  return '<div class="view-head"><div><h2>План на '+esc(periodText())+'</h2><p class="sub">Ужины считаются на троих, завтраки и обеды на одну порцию. Количество меняется по нажатию на блюдо в дне.</p></div>'+
+  return '<div class="view-head"><div><h2>План на '+esc(periodText())+'</h2><p class="sub">Порции считаются по тем, кто ест блюдо. Нажмите на блюдо в дне, чтобы поменять едоков, перенести или убрать.</p></div>'+
     '<div class="pset"><label class="field" for="p-start">Начало<input id="p-start" type="date" value="'+esc(state.plan.start)+'"></label>'+
     '<label class="field" for="p-days">Дней<input id="p-days" type="number" min="7" max="21" value="'+state.plan.days+'"></label>'+
-    '<button type="button" class="btn danger" data-act="clear-plan">Очистить план</button></div></div>'+
+    '<button type="button" class="btn danger" data-act="clear-plan">Очистить план</button><button type="button" class="btn primary" data-act="period-open">Новый период</button></div></div>'+
     bar+'<div class="plan'+(armed?' armed':'')+'"><div class="grid">'+g+'</div>'+
     '<aside class="palette" aria-label="Блюда"><div class="seg" role="group" aria-label="Приём пищи">'+
       ['d','b','l'].map(function(m){return '<button type="button" data-act="pmeal" data-meal="'+m+'" aria-pressed="'+(ui.pmeal===m)+'">'+({d:'Ужины',b:'Завтраки',l:'Обеды'})[m]+'</button>';}).join('')+'</div>'+
@@ -899,7 +1051,8 @@ function renderDishes(){
       (d.meals||['d']).map(function(m){return '<span class="pill">'+MEALS[m].t.toLowerCase()+'</span>';}).join('')+
       (d.time?'<span class="pill">'+esc(d.time)+' мин</span>':'')+
       (d.prep?'<span class="pill prep">заготовка: '+(d.prepType==='ready'?'готовое':'полуфабрикат')+'</span>':'')+
-      ((d.no||[]).length?'<span class="pill no">не ест: '+esc(d.no.join(', '))+'</span>':'');
+      ((d.no||[]).length?'<span class="pill no">не ест: '+esc(d.no.join(', '))+'</span>':'')+
+      ((d.who||[]).length?'<span class="pill">для: '+esc(d.who.join(', '))+'</span>':'')+(d.hm?'<span class="pill">не в меню</span>':'');
     var ings=(d.ings||[]).map(function(i){return i.n;}).filter(Boolean).join(', ');
     return '<button type="button" class="dcard'+(d.nw?' new':'')+'" data-cat="'+esc(d.cat)+'" data-act="dish-edit" data-id="'+esc(d.id)+'"><b>'+esc((d.e?d.e+' ':'')+d.name)+'</b><span class="pills">'+pills+'</span>'+
       '<p>'+(ings?esc(ings):(d.nw?'Ингредиенты заполните, когда соберётесь готовить':'Ингредиенты не заполнены'))+'</p></button>';
@@ -937,7 +1090,9 @@ function renderShop(){
     '<div class="row"><button type="button" class="btn" data-act="uncheck" data-kind="shop">Снять отметки</button><button type="button" class="btn primary" data-act="copy-shop">Скопировать список</button></div></div>'+
     '<div class="row" style="margin-bottom:12px"><div class="seg" role="group" aria-label="Группировка">'+modes.map(function(m){
       return '<button type="button" data-act="shopmode" data-m="'+m[0]+'" aria-pressed="'+(ui.shopMode===m[0])+'">'+m[1]+'</button>';}).join('')+'</div></div>'+
-    (total?'<div class="sheet">'+body+'</div>':'<div class="empty">Список появится, когда в плане будут блюда с заполненными ингредиентами.</div>');
+    (total?'<div class="sheet">'+body+'</div>':'<div class="empty">Список появится, когда в плане будут блюда с заполненными ингредиентами.</div>')+
+    cutNotes(groups.cuts).map(function(x){return '<p class="stockbar" style="max-width:720px;margin-top:12px">'+esc(x)+' Запланируйте блюда из них или уберите в морозилку.</p>';}).join('')+
+    (ui.shopMode!=='all'&&(state.plan.cfg.cut||[]).length?'<p class="hint" style="margin-top:10px">Разделка целых продуктов считается только в режиме «Весь период».</p>':'');
 }
 function renderPrep(){
   var blocks=prepBlocks(),dated=datedTasks(),total=0,done=0,a='',b='';
@@ -968,6 +1123,63 @@ function renderFreezer(){
     '<button type="button" class="btn primary" data-act="stock-new">+ Добавить</button></div>'+
     (un.length?'<p class="stockbar" style="max-width:720px"><b>Ещё не стоит в плане:</b> '+esc(un.join('; '))+'</p>':'')+body;
 }
+function renderSettings(){
+  var cfg=state.plan.cfg;
+  var people='<div class="sheet set"><table class="ptab"><tr><th>Кто</th><th>Имя в меню для чата</th><th>Размер порции</th></tr>'+EATERS.map(function(n,i){
+    return '<tr><td>'+esc(n)+'</td><td><input class="inp" id="cf-name-'+i+'" data-cfg="name" data-n="'+esc(n)+'" value="'+esc(cfg.names[n]||'')+'" placeholder="'+esc(n)+'" aria-label="Имя в меню: '+esc(n)+'"></td>'+
+      '<td><input class="inp" id="cf-coef-'+i+'" data-cfg="coef" data-n="'+esc(n)+'" inputmode="decimal" value="'+String(coef(n)).replace('.',',')+'" aria-label="Размер порции: '+esc(n)+'"></td></tr>';
+  }).join('')+'</table><p class="hint">1 — обычная порция, 1,5 — в полтора раза больше. Количество продуктов для блюда считается как сумма порций тех, кто его ест.</p></div>';
+  var recs=cfg.rec.length?cfg.rec.map(function(r,i){var x=recText(r);
+    return '<div class="rrow"><span><b>'+esc(x.name)+'</b><small>'+esc(x.sub)+'</small></span><button type="button" class="x" data-act="rec-del" data-i="'+i+'" aria-label="Удалить правило">×</button></div>';
+  }).join(''):'<p class="hint">Правил пока нет.</p>';
+  var recForm='<fieldset><legend>Новое правило</legend><div class="two">'+
+    '<label class="field" for="r-dish">Блюдо<select id="r-dish"><option value="">— выберите —</option>'+dishList().map(function(d){return '<option value="'+esc(d.id)+'">'+esc(d.name)+'</option>';}).join('')+'</select></label>'+
+    '<label class="field" for="r-meal">Когда<select id="r-meal"><option value="d">ужин</option><option value="b">завтрак</option><option value="l">обед</option></select></label></div>'+
+    '<div class="field">Дни недели<span class="checks">'+[1,2,3,4,5,6,0].map(function(x){return '<label><input type="checkbox" id="r-day-'+x+'"> '+WD[x].toLowerCase()+'</label>';}).join('')+'</span></div>'+
+    '<div class="field">Для кого (пусто — как обычно для этого приёма пищи)<span class="checks">'+EATERS.map(function(n,i){return '<label><input type="checkbox" id="r-who-'+i+'"> '+esc(n)+'</label>';}).join('')+'</span></div>'+
+    '<div><button type="button" class="btn" data-act="rec-add">Добавить правило</button></div></fieldset>';
+  var cuts=cfg.cut.map(function(r,i){
+    return '<fieldset><legend>Целый продукт</legend><div class="crow"><input class="inp" id="cut-w-'+i+'" data-cfg="cut-whole" data-r="'+i+'" value="'+esc(r.whole)+'" placeholder="курица" aria-label="Целый продукт">'+
+      '<button type="button" class="x" data-act="cut-del" data-r="'+i+'" aria-label="Удалить правило разделки">×</button></div>'+
+      '<p class="hint">Что получается из одной штуки (название — как в ингредиентах блюд, количество в штуках):</p>'+
+      (r.parts||[]).map(function(x,j){
+        return '<div class="crow"><input class="inp" id="cut-n-'+i+'-'+j+'" data-cfg="cut-pn" data-r="'+i+'" data-j="'+j+'" list="dl-ings" value="'+esc(x.n)+'" placeholder="куриное филе" aria-label="Часть">'+
+          '<input class="inp cq" id="cut-q-'+i+'-'+j+'" data-cfg="cut-pq" data-r="'+i+'" data-j="'+j+'" inputmode="decimal" value="'+esc(x.q||'')+'" placeholder="шт" aria-label="Сколько штук">'+
+          '<button type="button" class="x" data-act="cut-del-part" data-r="'+i+'" data-j="'+j+'" aria-label="Удалить часть">×</button></div>';
+      }).join('')+
+      '<div><button type="button" class="btn sm" data-act="cut-add-part" data-r="'+i+'">+ часть</button></div></fieldset>';
+  }).join('');
+  return '<div class="view-head"><div><h2>Настройки</h2><p class="sub">Сохраняются сразу.</p></div></div>'+
+    '<h3 class="sec">Кто ест и сколько</h3>'+people+
+    '<h3 class="sec">Повторяющиеся блюда</h3><div class="sheet set"><p class="hint">Блюда, которые стоят в плане по одним и тем же дням недели. Проставляются при нажатии «Новый период» или кнопкой ниже; уже стоящие не дублируются.</p>'+recs+recForm+
+    '<div><button type="button" class="btn primary" data-act="rec-apply">Проставить в текущий план</button></div></div>'+
+    '<h3 class="sec">Разделка</h3><div class="sheet set"><p class="hint">Если продукт покупается целым и режется на части, в покупках будет целый продукт, в заготовках — задача «Разделать», а под списком покупок — что останется лишним.</p>'+cuts+
+    '<div><button type="button" class="btn" data-act="cut-add">+ правило разделки</button></div></div>';
+}
+function openPeriod(){
+  var used=usedStock(),names=Object.keys(used).map(function(id){return state.dishes.items[id].name+' — '+String(used[id]).replace('.',',')+' порц.';});
+  document.getElementById('np-start').value=addDays(state.plan.start,state.plan.days);
+  document.getElementById('np-days').value=state.plan.days;
+  document.getElementById('np-rec').checked=true;
+  document.getElementById('np-off').checked=names.length>0;
+  document.getElementById('np-off-box').style.display=names.length?'block':'none';
+  document.getElementById('np-off-list').textContent=names.join('; ');
+  document.getElementById('dlg-period').showModal();
+}
+function startPeriod(){
+  var start=document.getElementById('np-start').value;
+  if(!start)return;
+  var used=usedStock(),off=document.getElementById('np-off').checked&&Object.keys(used).length>0;
+  if(off){writeOff(used);save('stock');}
+  state.plan.start=start;
+  state.plan.days=Math.min(21,Math.max(7,Math.round(num(document.getElementById('np-days').value))||14));
+  var added=document.getElementById('np-rec').checked?applyRecurring():0;
+  ui.armed=null;
+  save('plan');
+  document.getElementById('dlg-period').close();
+  location.hash='#plan';render();
+  toast('Новый период: '+periodText()+(added?'. Проставлено повторяющихся: '+added:''));
+}
 function openStock(id){
   var x=id?state.stock.items[id]:null;
   ui.stockId=id||null;
@@ -989,11 +1201,13 @@ function listText(kind){
   var t='';
   if(kind==='shop'){
     t='🛒 ПОКУПКИ НА '+periodText().toUpperCase()+'\n';
-    shoppingGroups(ui.shopMode).forEach(function(g){
+    var sg=shoppingGroups(ui.shopMode);
+    sg.forEach(function(g){
       if(!g.list.length)return;
       if(g.title)t+='\n'+g.title+'\n';
       g.list.forEach(function(it){var q=qtyText(it);t+='▫️ '+cap(it.name)+(q&&q!=='?'?' — '+q:'')+'\n';});
     });
+    cutNotes(sg.cuts).forEach(function(x){t+='\n'+x+'\n';});
   }else{
     t='🔪 ЗАГОТОВКИ НА '+periodText().toUpperCase()+'\n';
     var bl=prepBlocks(),dt=datedTasks();
@@ -1036,7 +1250,7 @@ function confirmBox(text,yes,fn){
 }
 function addEntry(date,meal,id){
   if(!state.dishes.items[id])return;
-  cell(date,meal,true).push({d:id,p:MEALS[meal].p});
+  cell(date,meal,true).push(newEntry(state.dishes.items[id],id,meal));
   save('plan');render();
 }
 function moveEntry(from,date,meal){
@@ -1044,7 +1258,6 @@ function moveEntry(from,date,meal){
   if(!en)return;
   if(from.date===date&&from.meal===meal)return;
   src.splice(from.i,1);
-  if(MEALS[from.meal].p!==MEALS[meal].p&&num(en.p)===MEALS[from.meal].p)en.p=MEALS[meal].p;
   cell(date,meal,true).push(en);
   save('plan');render();
 }
@@ -1053,14 +1266,18 @@ function openEntry(date,meal,i){
   var d=state.dishes.items[en.d];
   ui.editing={date:date,meal:meal,i:i};
   document.getElementById('entry-title').textContent=(d?d.name:'Блюдо')+' · '+wd(date)+' '+dm(date)+', '+MEALS[meal].t.toLowerCase();
-  document.getElementById('entry-p').value=num(en.p)||MEALS[meal].p;
+  var who=entryWho(en,meal);
+  document.getElementById('entry-who').innerHTML=EATERS.map(function(n,k){return '<label><input type="checkbox" id="ew-'+k+'"'+(who.indexOf(n)>=0?' checked':'')+'> '+esc(n)+'</label>';}).join('');
+  ui.manualP=num(en.p)>0&&num(en.p)!==autoP(who);
+  document.getElementById('entry-p').value=entryP(en,meal);
+  pHint();
   document.getElementById('entry-note').value=en.n||'';
   setLink('entry-link',d&&d.link);
   var adv=moveAdvice(date,meal,i),days=adv.days,next=addDays(date,1);
   var sel=document.getElementById('entry-to');
   sel.innerHTML=days.map(function(x){
     var b=adv.bad[x]||{},mark=b.move&&b.swap?' ⚠ будет повтор':b.move?' ⚠ повтор при переносе':b.swap?' ⚠ повтор при обмене':'';
-    return '<option value="'+x+'">'+esc(dayLabel(x)+' — '+(entryLine(x,meal)||'свободно')+mark)+'</option>';
+    return '<option value="'+x+'">'+esc(dayLabel(x)+' — '+(slotSummary(x,meal)||'свободно')+mark)+'</option>';
   }).join('');
   var pick=days.indexOf(next)>=0?next:days[0];
   if(pick&&adv.bad[pick]&&adv.bad[pick].move&&adv.bad[pick].swap&&(adv.bestSwap||adv.bestMove))pick=adv.bestSwap||adv.bestMove;
@@ -1075,6 +1292,13 @@ function openEntry(date,meal,i){
   var tipEl=document.getElementById('entry-advice');tipEl.textContent=tip;tipEl.hidden=!tip;
   document.getElementById('entry-stock-box').style.display=d&&d.prep?'block':'none';
   document.getElementById('dlg-entry').showModal();
+}
+function dialogWho(){
+  var ed=ui.editing,w=EATERS.filter(function(n,k){var c=document.getElementById('ew-'+k);return c&&c.checked;});
+  return w.length?w:(ed?MEALS[ed.meal].who.slice():EATERS.slice());
+}
+function pHint(){
+  document.getElementById('entry-p-hint').textContent=ui.manualP?'Число вписано вручную. «По едокам» вернёт автоматический расчёт.':'Считается по тем, кто ест (размер порций задаётся в «Настройках»).';
 }
 var rowN=0;
 function ingRow(i){
@@ -1111,6 +1335,8 @@ function openDish(id){
   document.getElementById('f-base').value=x.base||'';
   document.getElementById('f-time').value=x.time||'';
   document.getElementById('f-no').innerHTML=EATERS.map(function(n,i){return '<label><input type="checkbox" id="f-no-'+i+'" value="'+esc(n)+'"'+((x.no||[]).indexOf(n)>=0?' checked':'')+'> '+esc(n)+'</label>';}).join('');
+  document.getElementById('f-who').innerHTML=EATERS.map(function(n,i){return '<label><input type="checkbox" id="f-who-'+i+'"'+((x.who||[]).indexOf(n)>=0?' checked':'')+'> '+esc(n)+'</label>';}).join('');
+  document.getElementById('f-hm').checked=!!x.hm;
   document.getElementById('f-ings').innerHTML=((x.ings||[]).length?x.ings:[{}]).map(ingRow).join('');
   document.getElementById('f-recipe').value=x.recipe||'';
   document.getElementById('f-prep').checked=!!x.prep;
@@ -1147,7 +1373,9 @@ function saveDish(){
     link:safeUrl(document.getElementById('f-link').value),nw:document.getElementById('f-new').checked,
     ings:ings,recipe:document.getElementById('f-recipe').value.trim(),
     prep:document.getElementById('f-prep').checked,prepType:document.getElementById('f-preptype').value,acts:acts,
-    no:EATERS.filter(function(n,i){return document.getElementById('f-no-'+i).checked;})
+    no:EATERS.filter(function(n,i){return document.getElementById('f-no-'+i).checked;}),
+    who:EATERS.filter(function(n,i){return document.getElementById('f-who-'+i).checked;}),
+    hm:document.getElementById('f-hm').checked
   };
   save('dishes');
   document.getElementById('dlg-dish').close();
@@ -1171,7 +1399,8 @@ document.addEventListener('click',function(ev){
   if(a==='arm'){ui.armed=ui.armed===el.dataset.id?null:el.dataset.id;render();}
   else if(a==='pmeal'){ui.pmeal=el.dataset.meal;ui.armed=null;render();}
   else if(a==='entry'){openEntry(el.dataset.date,el.dataset.meal,+el.dataset.i);}
-  else if(a==='p-minus'||a==='p-plus'){var inp=document.getElementById('entry-p');inp.value=Math.max(0.5,num(inp.value)+(a==='p-plus'?1:-1));}
+  else if(a==='p-minus'||a==='p-plus'){var inp=document.getElementById('entry-p');inp.value=Math.max(0.5,num(inp.value)+(a==='p-plus'?0.5:-0.5));ui.manualP=true;pHint();}
+  else if(a==='p-auto'){ui.manualP=false;document.getElementById('entry-p').value=autoP(dialogWho());pHint();}
   else if(a==='entry-del'){ed=ui.editing;if(ed){cell(ed.date,ed.meal).splice(ed.i,1);save('plan');}document.getElementById('dlg-entry').close();render();}
   else if(a==='entry-move'||a==='entry-swap'||a==='entry-stock'){
     ed=ui.editing;if(!ed)return;
@@ -1181,7 +1410,7 @@ document.addEventListener('click',function(ev){
     if(!en)return;
     if(a==='entry-stock'){
       cell(ed.date,ed.meal).splice(ed.i,1);
-      state.stock.items[uid()]={name:'',dish:en.d,p:num(en.p)||MEALS[ed.meal].p,date:fmtD(new Date())};
+      state.stock.items[uid()]={name:'',dish:en.d,p:entryP(en,ed.meal),date:fmtD(new Date())};
       save('plan');save('stock');render();toast('Убрано из плана и записано в морозилку');
     }else if(!to){return;}
     else if(a==='entry-move'){
@@ -1204,10 +1433,25 @@ document.addEventListener('click',function(ev){
       delete state.dishes.items[id];
       Object.keys(state.plan.cells).forEach(function(d){MEAL_ORDER.forEach(function(m){var c=state.plan.cells[d][m];if(c)state.plan.cells[d][m]=c.filter(function(e){return e.d!==id;});});});
       Object.keys(state.stock.items).forEach(function(k){if(state.stock.items[k].dish===id){state.stock.items[k].dish='';save('stock');}});
+      state.plan.cfg.rec=state.plan.cfg.rec.filter(function(r){return r.d!==id;});
       if(ui.armed===id)ui.armed=null;
       save('dishes');save('plan');render();
     });
   }
+  else if(a==='period-open'){openPeriod();}
+  else if(a==='period-cancel'){document.getElementById('dlg-period').close();}
+  else if(a==='rec-add'){
+    var rd=document.getElementById('r-dish').value,rdays=[1,2,3,4,5,6,0].filter(function(x){return document.getElementById('r-day-'+x).checked;});
+    if(!rd||!rdays.length){toast('Выберите блюдо и хотя бы один день недели');return;}
+    state.plan.cfg.rec.push({d:rd,meal:document.getElementById('r-meal').value,days:rdays,who:EATERS.filter(function(n,i){return document.getElementById('r-who-'+i).checked;})});
+    save('plan');render();
+  }
+  else if(a==='rec-del'){state.plan.cfg.rec.splice(+el.dataset.i,1);save('plan');render();}
+  else if(a==='rec-apply'){var addedN=applyRecurring();if(addedN)save('plan');toast(addedN?'Добавлено в план: '+addedN:'Все повторяющиеся блюда уже стоят в плане');}
+  else if(a==='cut-add'){state.plan.cfg.cut.push({whole:'',parts:[{n:'',q:0}]});save('plan');render();}
+  else if(a==='cut-del'){state.plan.cfg.cut.splice(+el.dataset.r,1);save('plan');render();}
+  else if(a==='cut-add-part'){var cr=state.plan.cfg.cut[+el.dataset.r];if(cr){(cr.parts||(cr.parts=[])).push({n:'',q:0});save('plan');render();}}
+  else if(a==='cut-del-part'){var cr2=state.plan.cfg.cut[+el.dataset.r];if(cr2&&cr2.parts){cr2.parts.splice(+el.dataset.j,1);save('plan');render();}}
   else if(a==='stock-new'){openStock(null);}
   else if(a==='stock-edit'){openStock(el.dataset.id);}
   else if(a==='stock-cancel'){document.getElementById('dlg-stock').close();}
@@ -1226,25 +1470,41 @@ document.addEventListener('change',function(ev){
   if(el.dataset&&el.dataset.act==='check'){
     var kind=el.dataset.kind,key=el.dataset.key;
     checkOp({kind:kind,key:key,on:el.checked});render();
+  }else if(el.dataset&&el.dataset.cfg){
+    var cf=state.plan.cfg,ct=el.dataset.cfg,cr=cf.cut[+el.dataset.r],cp=cr&&cr.parts?cr.parts[+el.dataset.j]:null,cv=num(el.value);
+    if(ct==='coef'){if(cv>0)cf.coef[el.dataset.n]=cv;else delete cf.coef[el.dataset.n];}
+    else if(ct==='name'){if(el.value.trim())cf.names[el.dataset.n]=el.value.trim();else delete cf.names[el.dataset.n];}
+    else if(ct==='cut-whole'&&cr)cr.whole=el.value.trim();
+    else if(ct==='cut-pn'&&cp)cp.n=el.value.trim();
+    else if(ct==='cut-pq'&&cp)cp.q=cv;
+    save('plan');
+  }else if(el.closest&&el.closest('#entry-who')){
+    if(!ui.manualP)document.getElementById('entry-p').value=autoP(dialogWho());
   }else if(el.id==='p-start'){
     if(el.value){state.plan.start=el.value;save('plan');render();}
   }else if(el.id==='p-days'){
     state.plan.days=Math.min(21,Math.max(7,Math.round(num(el.value))||14));save('plan');render();
   }else if(el.id==='f-prep'){togglePrepBox();}
 });
-document.addEventListener('input',function(ev){if(ev.target&&ev.target.id==='menu-text')ui.menuEdit={base:menuText(),val:ev.target.value};});
+document.addEventListener('input',function(ev){
+  if(ev.target&&ev.target.id==='menu-text')ui.menuEdit={base:menuText(),val:ev.target.value};
+  else if(ev.target&&ev.target.id==='entry-p'){ui.manualP=true;pHint();}
+});
 document.addEventListener('submit',function(ev){if(ev.target&&ev.target.id==='auth-form'){ev.preventDefault();authSubmit('login');}});
 document.getElementById('entry-form').addEventListener('submit',function(ev){
   ev.preventDefault();
   var ed=ui.editing,en=ed&&cell(ed.date,ed.meal)[ed.i];
   if(en){
-    en.p=Math.max(0.5,num(document.getElementById('entry-p').value)||MEALS[ed.meal].p);
+    var who=dialogWho(),pv=num(document.getElementById('entry-p').value);
+    if(sameSet(who,MEALS[ed.meal].who))delete en.who;else en.who=who;
+    if(ui.manualP&&pv>0&&pv!==autoP(who))en.p=pv;else delete en.p;
     var n=document.getElementById('entry-note').value.trim();
     if(n)en.n=n;else delete en.n;
     save('plan');
   }
   document.getElementById('dlg-entry').close();render();
 });
+document.getElementById('period-form').addEventListener('submit',function(ev){ev.preventDefault();startPeriod();});
 document.getElementById('stock-form').addEventListener('submit',function(ev){ev.preventDefault();saveStock();});
 document.getElementById('dish-form').addEventListener('submit',function(ev){ev.preventDefault();saveDish();});
 document.addEventListener('keydown',function(ev){
@@ -1281,7 +1541,7 @@ document.addEventListener('drop',function(ev){
 /* routing */
 function route(){
   var h=(location.hash||'').replace('#','');
-  ui.view=['plan','dishes','menu','shopping','prep','freezer'].indexOf(h)>=0?h:'plan';
+  ui.view=['plan','dishes','menu','shopping','prep','freezer','settings'].indexOf(h)>=0?h:'plan';
   render();
 }
 window.addEventListener('hashchange',route);
