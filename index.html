@@ -224,6 +224,7 @@ legend{font-size:13px;font-weight:700;padding:0 4px}
   <fieldset><legend>Перенести на другой день</legend>
     <label class="field" for="entry-to">Куда
       <select id="entry-to"></select></label>
+    <p class="auth-msg" id="entry-advice" hidden></p>
     <div class="row">
       <button type="button" class="btn" data-act="entry-move">Перенести это блюдо</button>
       <button type="button" class="btn" data-act="entry-swap">Поменять дни местами</button>
@@ -579,6 +580,44 @@ function dayWarnings(){
 }
 
 function dayLabel(date){return wd(date)+' '+dm(date);}
+/* Tries each other day as a target for moving or swapping and reports which ones create a type repeat. */
+function moveAdvice(date,meal,i){
+  var real=state.plan.cells,days=dayList().filter(function(x){return x!==date;}),res={days:days,bad:{},bestMove:null,bestSwap:null};
+  if(meal!=='d')return res;
+  function sim(fn){
+    state.plan.cells=clone(real);
+    var n;
+    try{fn(state.plan.cells);n=Object.keys(dayWarnings()).length;}finally{state.plan.cells=real;}
+    return n;
+  }
+  var cur=Object.keys(dayWarnings()).length,today=fmtD(new Date());
+  var moving=state.dishes.items[(cell(date,meal)[i]||{}).d],mbase=moving&&moving.base?String(moving.base).toLowerCase().trim():'';
+  function sameType(x){
+    return !!mbase&&cell(x,meal).some(function(en){var d=state.dishes.items[en.d];return d&&String(d.base||'').toLowerCase().trim()===mbase;});
+  }
+  days.forEach(function(x){
+    var mv=sim(function(c){
+      var en=c[date][meal].splice(i,1)[0];
+      c[x]=c[x]||{};(c[x][meal]=c[x][meal]||[]).push(en);
+    })>cur||sameType(x);
+    var sw=sim(function(c){
+      var a=c[date][meal]||[],b=(c[x]&&c[x][meal])||[];
+      c[date][meal]=b;c[x]=c[x]||{};c[x][meal]=a;
+    })>cur;
+    res.bad[x]={move:mv,swap:sw};
+  });
+  function nearest(kind){
+    var best=null,bestD=1e9;
+    days.forEach(function(x){
+      if(res.bad[x][kind])return;
+      var dist=Math.abs(Math.round((parseD(x)-parseD(date))/864e5))+(x<today?100:0);
+      if(dist<bestD){bestD=dist;best=x;}
+    });
+    return best;
+  }
+  res.bestMove=nearest('move');res.bestSwap=nearest('swap');
+  return res;
+}
 function shoppingGroups(mode){
   var groups={},order=[],lateOrder=[];
   entries().forEach(function(e){
@@ -946,10 +985,23 @@ function openEntry(date,meal,i){
   document.getElementById('entry-p').value=num(en.p)||MEALS[meal].p;
   document.getElementById('entry-note').value=en.n||'';
   setLink('entry-link',d&&d.link);
-  var days=dayList().filter(function(x){return x!==date;}),next=addDays(date,1);
+  var adv=moveAdvice(date,meal,i),days=adv.days,next=addDays(date,1);
   var sel=document.getElementById('entry-to');
-  sel.innerHTML=days.map(function(x){return '<option value="'+x+'">'+esc(dayLabel(x)+' — '+(entryLine(x,meal)||'свободно'))+'</option>';}).join('');
-  if(days.indexOf(next)>=0)sel.value=next;
+  sel.innerHTML=days.map(function(x){
+    var b=adv.bad[x]||{},mark=b.move&&b.swap?' ⚠ будет повтор':b.move?' ⚠ повтор при переносе':b.swap?' ⚠ повтор при обмене':'';
+    return '<option value="'+x+'">'+esc(dayLabel(x)+' — '+(entryLine(x,meal)||'свободно')+mark)+'</option>';
+  }).join('');
+  var pick=days.indexOf(next)>=0?next:days[0];
+  if(pick&&adv.bad[pick]&&adv.bad[pick].move&&adv.bad[pick].swap&&(adv.bestSwap||adv.bestMove))pick=adv.bestSwap||adv.bestMove;
+  if(pick)sel.value=pick;
+  var tip='';
+  if(meal==='d'){
+    var anyBad=days.some(function(x){return adv.bad[x].move||adv.bad[x].swap;});
+    if(anyBad)tip='Чтобы один тип блюда не шёл два дня подряд: '+
+      (adv.bestMove?'перенести можно на '+dayLabel(adv.bestMove):'переноса без повтора нет')+', '+
+      (adv.bestSwap?'поменяться — с '+dayLabel(adv.bestSwap):'обмена без повтора нет')+'.';
+  }
+  var tipEl=document.getElementById('entry-advice');tipEl.textContent=tip;tipEl.hidden=!tip;
   document.getElementById('entry-stock-box').style.display=d&&d.prep?'block':'none';
   document.getElementById('dlg-entry').showModal();
 }
