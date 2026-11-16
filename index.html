@@ -221,6 +221,16 @@ legend{font-size:13px;font-weight:700;padding:0 4px}
   </div>
   <label class="field" for="entry-note">Пометка для меню (кому какой вариант)
     <input id="entry-note" type="text" placeholder="папе и Даше — с курицей"></label>
+  <fieldset><legend>Перенести на другой день</legend>
+    <label class="field" for="entry-to">Куда
+      <select id="entry-to"></select></label>
+    <div class="row">
+      <button type="button" class="btn" data-act="entry-move">Перенести это блюдо</button>
+      <button type="button" class="btn" data-act="entry-swap">Поменять дни местами</button>
+    </div>
+    <p class="hint">«Перенести» двигает только это блюдо. «Поменять местами» обменивает весь приём пищи между двумя днями. Задачи по датам пересчитаются сами.</p>
+    <div id="entry-stock-box"><button type="button" class="btn" data-act="entry-stock">Не готовим сейчас: убрать в запас морозилки</button></div>
+  </fieldset>
   <a id="entry-link" class="ext" target="_blank" rel="noopener noreferrer" hidden>Открыть рецепт или видео ↗</a>
   <div class="dlg-foot">
     <button type="button" class="btn danger" data-act="entry-del">Убрать из дня</button>
@@ -936,6 +946,11 @@ function openEntry(date,meal,i){
   document.getElementById('entry-p').value=num(en.p)||MEALS[meal].p;
   document.getElementById('entry-note').value=en.n||'';
   setLink('entry-link',d&&d.link);
+  var days=dayList().filter(function(x){return x!==date;}),next=addDays(date,1);
+  var sel=document.getElementById('entry-to');
+  sel.innerHTML=days.map(function(x){return '<option value="'+x+'">'+esc(dayLabel(x)+' — '+(entryLine(x,meal)||'свободно'))+'</option>';}).join('');
+  if(days.indexOf(next)>=0)sel.value=next;
+  document.getElementById('entry-stock-box').style.display=d&&d.prep?'block':'none';
   document.getElementById('dlg-entry').showModal();
 }
 var rowN=0;
@@ -1035,6 +1050,25 @@ document.addEventListener('click',function(ev){
   else if(a==='entry'){openEntry(el.dataset.date,el.dataset.meal,+el.dataset.i);}
   else if(a==='p-minus'||a==='p-plus'){var inp=document.getElementById('entry-p');inp.value=Math.max(0.5,num(inp.value)+(a==='p-plus'?1:-1));}
   else if(a==='entry-del'){ed=ui.editing;if(ed){cell(ed.date,ed.meal).splice(ed.i,1);save('plan');}document.getElementById('dlg-entry').close();render();}
+  else if(a==='entry-move'||a==='entry-swap'||a==='entry-stock'){
+    ed=ui.editing;if(!ed)return;
+    var to=document.getElementById('entry-to').value;
+    en=cell(ed.date,ed.meal)[ed.i];
+    document.getElementById('dlg-entry').close();
+    if(!en)return;
+    if(a==='entry-stock'){
+      cell(ed.date,ed.meal).splice(ed.i,1);
+      state.stock.items[uid()]={name:'',dish:en.d,p:num(en.p)||MEALS[ed.meal].p,date:fmtD(new Date())};
+      save('plan');save('stock');render();toast('Убрано из плана и записано в морозилку');
+    }else if(!to){return;}
+    else if(a==='entry-move'){
+      moveEntry(ed,to,ed.meal);toast('Перенесено на '+dayLabel(to));
+    }else{
+      var x=cell(ed.date,ed.meal,true).slice(),y=cell(to,ed.meal,true).slice();
+      state.plan.cells[ed.date][ed.meal]=y;state.plan.cells[to][ed.meal]=x;
+      save('plan');render();toast(dayLabel(ed.date)+' и '+dayLabel(to)+' поменялись местами');
+    }
+  }
   else if(a==='clear-plan'){confirmBox('Убрать все блюда из плана на '+periodText()+'?','Очистить',function(){dayList().forEach(function(d){delete state.plan.cells[d];});save('plan');render();});}
   else if(a==='dfilter'){ui.dfilter=el.dataset.f;render();}
   else if(a==='dish-new'){openDish(null);}
