@@ -121,8 +121,8 @@ h1,h2,h3{margin:0;text-wrap:balance}
 .ptab td:first-child{font-weight:600;white-space:nowrap}
 .rrow{display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:8px;align-items:center;border-top:1px solid var(--line);padding:8px 0}
 .rrow small{display:block;color:var(--muted);font-size:12.5px}
-.crow{display:grid;grid-template-columns:minmax(0,1fr) 70px 30px;gap:6px;align-items:center}
-.crow>.x{grid-column:3}
+.crow{display:grid;grid-template-columns:minmax(0,1fr) 64px auto 30px;gap:6px;align-items:center}
+.crow>.x{grid-column:4}
 .warn{grid-column:1/-1;margin:0 8px 6px;background:var(--warn-bg);color:var(--warn);font-size:12px;font-weight:600;border-radius:6px;padding:3px 8px}
 
 .palette{position:sticky;top:calc(var(--top-h,88px) + 14px);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - var(--top-h,88px) - 30px);overflow:auto}
@@ -762,11 +762,12 @@ function cutPlan(){
   var out=[];
   rules.forEach(function(r){
     var parts=(r.parts||[]).filter(function(x){return String(x.n||'').trim()&&num(x.q)>0;}),N=0;
-    parts.forEach(function(x){var nd=need[String(x.n).toLowerCase().trim()]||0;if(nd>0)N=Math.max(N,Math.ceil(nd/num(x.q)-0.03));});
+    parts.forEach(function(x){var nd=need[String(x.n).toLowerCase().trim()]||0;if(nd>0&&!x.buy)N=Math.max(N,Math.ceil(nd/num(x.q)-0.03));});
     if(N<1)return;
     out.push({whole:String(r.whole).trim().toLowerCase(),N:N,parts:parts.map(function(x){
       var key=String(x.n).toLowerCase().trim(),nd=Math.max(0,Math.ceil((need[key]||0)-0.05));
-      return {n:key,need:nd,have:N*num(x.q),left:N*num(x.q)-nd};
+      var have=N*num(x.q);
+      return {n:key,need:nd,have:have,left:Math.max(0,have-nd),short:Math.max(0,nd-have)};
     })});
   });
   return out;
@@ -799,8 +800,13 @@ function shoppingGroups(mode){
     var from={};
     c.parts.forEach(function(x){
       if(x.need<=0)return;
+      var old=groups.all.items[x.n+'|шт']||groups.all.items[x.n+'|шт.'];
       delete groups.all.items[x.n+'|шт'];delete groups.all.items[x.n+'|шт.'];
       from[x.n+': нужно '+x.need+' из '+x.have]=true;
+      if(x.short>0){
+        var extra={};extra['докупить к тем, что с разделки ('+x.have+' шт); всего нужно '+x.need]=true;
+        groups.all.items[x.n+'|шт']={key:x.n+'|шт',name:x.n,unit:'шт',q:x.short,from:extra,unknown:old&&old.unknown};
+      }
     });
     groups.all.items['cut|'+c.whole]={key:'cut|'+c.whole,name:c.whole+' целая, на разделку',unit:'шт',q:c.N,from:from};
   });
@@ -1141,10 +1147,11 @@ function renderSettings(){
   var cuts=cfg.cut.map(function(r,i){
     return '<fieldset><legend>Целый продукт</legend><div class="crow"><input class="inp" id="cut-w-'+i+'" data-cfg="cut-whole" data-r="'+i+'" value="'+esc(r.whole)+'" placeholder="курица" aria-label="Целый продукт">'+
       '<button type="button" class="x" data-act="cut-del" data-r="'+i+'" aria-label="Удалить правило разделки">×</button></div>'+
-      '<p class="hint">Что получается из одной штуки (название — как в ингредиентах блюд, количество в штуках):</p>'+
+      '<p class="hint">Что получается из одной штуки (название — как в ингредиентах блюд, количество в штуках). «Докупаю» — часть, которой обычно не хватает: недостающее покупается отдельно и не увеличивает число целых.</p>'+
       (r.parts||[]).map(function(x,j){
         return '<div class="crow"><input class="inp" id="cut-n-'+i+'-'+j+'" data-cfg="cut-pn" data-r="'+i+'" data-j="'+j+'" list="dl-ings" value="'+esc(x.n)+'" placeholder="куриное филе" aria-label="Часть">'+
           '<input class="inp cq" id="cut-q-'+i+'-'+j+'" data-cfg="cut-pq" data-r="'+i+'" data-j="'+j+'" inputmode="decimal" value="'+esc(x.q||'')+'" placeholder="шт" aria-label="Сколько штук">'+
+          '<label class="late" title="Если не хватает, недостающее покупается отдельно, а не новой целой штукой"><input type="checkbox" id="cut-b-'+i+'-'+j+'" data-cfg="cut-pb" data-r="'+i+'" data-j="'+j+'"'+(x.buy?' checked':'')+'> докупаю</label>'+
           '<button type="button" class="x" data-act="cut-del-part" data-r="'+i+'" data-j="'+j+'" aria-label="Удалить часть">×</button></div>';
       }).join('')+
       '<div><button type="button" class="btn sm" data-act="cut-add-part" data-r="'+i+'">+ часть</button></div></fieldset>';
@@ -1477,6 +1484,7 @@ document.addEventListener('change',function(ev){
     else if(ct==='cut-whole'&&cr)cr.whole=el.value.trim();
     else if(ct==='cut-pn'&&cp)cp.n=el.value.trim();
     else if(ct==='cut-pq'&&cp)cp.q=cv;
+    else if(ct==='cut-pb'&&cp){if(el.checked)cp.buy=true;else delete cp.buy;}
     save('plan');
   }else if(el.closest&&el.closest('#entry-who')){
     if(!ui.manualP)document.getElementById('entry-p').value=autoP(dialogWho());
