@@ -99,6 +99,9 @@ h1,h2,h3{margin:0;text-wrap:balance}
 .chip[data-cat="fiber"],.card[data-cat="fiber"]{border-left-color:var(--fiber)}
 .chip small{color:var(--muted);font-size:12px}
 .chip:hover,.card:hover{border-color:var(--muted)}
+.chip.new,.card.new,.dcard.new{border-style:dashed;border-left-style:solid}
+.ext{color:var(--accent);font-weight:600;font-size:13.5px}
+.pill.new{background:var(--accent);color:var(--accent-ink)}
 .warn{grid-column:1/-1;margin:0 8px 6px;background:var(--warn-bg);color:var(--warn);font-size:12px;font-weight:600;border-radius:6px;padding:3px 8px}
 
 .palette{position:sticky;top:104px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 124px);overflow:auto}
@@ -202,6 +205,7 @@ legend{font-size:13px;font-weight:700;padding:0 4px}
   </div>
   <label class="field" for="entry-note">Пометка для меню (кому какой вариант)
     <input id="entry-note" type="text" placeholder="папе и Даше — с курицей"></label>
+  <a id="entry-link" class="ext" target="_blank" rel="noopener noreferrer" hidden>Открыть рецепт или видео ↗</a>
   <div class="dlg-foot">
     <button type="button" class="btn danger" data-act="entry-del">Убрать из дня</button>
     <button type="submit" class="btn primary">Готово</button>
@@ -213,6 +217,13 @@ legend{font-size:13px;font-weight:700;padding:0 4px}
   <div class="name-row">
     <label class="field" for="f-emoji">Значок<input id="f-emoji" type="text" maxlength="4" placeholder="🍲"></label>
     <label class="field" for="f-name">Название<input id="f-name" type="text" required></label>
+  </div>
+  <div class="two">
+    <label class="field" for="f-link">Ссылка на рецепт или видео
+      <input id="f-link" type="url" inputmode="url" placeholder="https://youtube.com/…"></label>
+    <div class="field">Статус
+      <span class="checks"><label><input type="checkbox" id="f-new"> ещё не готовила, хочу попробовать</label></span>
+      <a id="f-link-a" class="ext" target="_blank" rel="noopener noreferrer" hidden>Открыть ссылку ↗</a></div>
   </div>
   <div class="two">
     <label class="field" for="f-cat">Категория
@@ -283,6 +294,8 @@ function clone(o){return JSON.parse(JSON.stringify(o));}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function num(v){var n=parseFloat(String(v==null?'':v).replace(',','.'));return isFinite(n)?n:0;}
 function uid(){return 'd'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function safeUrl(u){u=String(u||'').trim();if(!u)return '';if(!/^https?:\/\//i.test(u))u='https://'+u;try{var x=new URL(u);return (x.protocol==='https:'||x.protocol==='http:')?x.href:'';}catch(e){return '';}}
+function setLink(id,url){var a=document.getElementById(id);url=safeUrl(url);if(url){a.href=url;a.hidden=false;}else{a.removeAttribute('href');a.hidden=true;}}
 function cap(s){s=String(s||'').trim();return s?s.charAt(0).toUpperCase()+s.slice(1):s;}
 
 var state={dishes:{items:{}},plan:{start:fmtD(new Date()),days:14,cells:{}},checks:{shop:{},prep:{}}};
@@ -587,7 +600,7 @@ function chipHTML(e,date,meal,i){
   if(!d)return '';
   var p=num(e.p)||MEALS[meal].p;
   var extra=(p!==MEALS[meal].p?'<small>×'+String(p).replace('.',',')+'</small>':'')+(e.n?'<small>'+esc(e.n)+'</small>':'');
-  return '<button type="button" class="chip" draggable="true" data-cat="'+esc(d.cat)+'" data-act="entry" data-date="'+date+'" data-meal="'+meal+'" data-i="'+i+'" title="Порции и пометка">'+
+  return '<button type="button" class="chip'+(d.nw?' new':'')+'" draggable="true" data-cat="'+esc(d.cat)+'" data-act="entry" data-date="'+date+'" data-meal="'+meal+'" data-i="'+i+'" title="Порции и пометка">'+
     '<span>'+esc((d.e?d.e+' ':'')+d.name)+'</span>'+extra+'</button>';
 }
 function renderPlan(){
@@ -626,30 +639,31 @@ function renderPlan(){
       pal+'</aside></div>';
 }
 function cardHTML(d){
-  return '<button type="button" class="card" draggable="true" data-cat="'+esc(d.cat)+'" data-act="arm" data-id="'+esc(d.id)+'" aria-pressed="'+(ui.armed===d.id)+'">'+esc((d.e?d.e+' ':'')+d.name)+'</button>';
+  return '<button type="button" class="card'+(d.nw?' new':'')+'" draggable="true" data-cat="'+esc(d.cat)+'" data-act="arm" data-id="'+esc(d.id)+'" aria-pressed="'+(ui.armed===d.id)+'"'+(d.nw?' title="Ещё не готовили"':'')+'>'+esc((d.e?d.e+' ':'')+d.name)+(d.nw?' ✦':'')+'</button>';
 }
 function renderDishes(){
   var all=dishList();
-  var filters=[['all','Все'],['d','Ужины'],['b','Завтраки'],['l','Обеды'],['prep','С заготовкой']];
+  var filters=[['all','Все'],['d','Ужины'],['b','Завтраки'],['l','Обеды'],['prep','С заготовкой'],['new','Хочу попробовать']];
   var list=all.filter(function(d){
     if(ui.dfilter==='all')return true;
     if(ui.dfilter==='prep')return !!d.prep;
+    if(ui.dfilter==='new')return !!d.nw;
     return (d.meals||['d']).indexOf(ui.dfilter)>=0;
   });
   var body;
   if(!all.length)body='<div class="empty">Здесь будут все блюда, которые вы умеете готовить. Добавьте первое, и оно появится в плане.</div>';
   else if(!list.length)body='<div class="empty">В этом фильтре блюд нет.</div>';
   else body='<div class="dgrid">'+list.map(function(d){
-    var pills='<span class="pill">'+CATS[d.cat||'whole']+'</span>'+
+    var pills=(d.nw?'<span class="pill new">хочу попробовать</span>':'')+'<span class="pill">'+CATS[d.cat||'whole']+'</span>'+(safeUrl(d.link)?'<span class="pill">есть ссылка</span>':'')+
       (d.meals||['d']).map(function(m){return '<span class="pill">'+MEALS[m].t.toLowerCase()+'</span>';}).join('')+
       (d.time?'<span class="pill">'+esc(d.time)+' мин</span>':'')+
       (d.prep?'<span class="pill prep">заготовка: '+(d.prepType==='ready'?'готовое':'полуфабрикат')+'</span>':'')+
       ((d.no||[]).length?'<span class="pill no">не ест: '+esc(d.no.join(', '))+'</span>':'');
     var ings=(d.ings||[]).map(function(i){return i.n;}).filter(Boolean).join(', ');
-    return '<button type="button" class="dcard" data-cat="'+esc(d.cat)+'" data-act="dish-edit" data-id="'+esc(d.id)+'"><b>'+esc((d.e?d.e+' ':'')+d.name)+'</b><span class="pills">'+pills+'</span>'+
-      '<p>'+(ings?esc(ings):'Ингредиенты не заполнены')+'</p></button>';
+    return '<button type="button" class="dcard'+(d.nw?' new':'')+'" data-cat="'+esc(d.cat)+'" data-act="dish-edit" data-id="'+esc(d.id)+'"><b>'+esc((d.e?d.e+' ':'')+d.name)+'</b><span class="pills">'+pills+'</span>'+
+      '<p>'+(ings?esc(ings):(d.nw?'Ингредиенты заполните, когда соберётесь готовить':'Ингредиенты не заполнены'))+'</p></button>';
   }).join('')+'</div>';
-  return '<div class="view-head"><div><h2>Блюда</h2><p class="sub">'+all.length+' в базе. Количество ингредиентов указывается на одну порцию.</p></div>'+
+  return '<div class="view-head"><div><h2>Блюда</h2><p class="sub">'+all.length+' в базе. Количество ингредиентов указывается на одну порцию. Блюда, которые ещё не готовили, отмечены пунктиром.</p></div>'+
     '<button type="button" class="btn primary" data-act="dish-new">+ Добавить блюдо</button></div>'+
     '<div class="row" style="margin-bottom:12px"><div class="seg" role="group" aria-label="Фильтр">'+filters.map(function(f){
       return '<button type="button" data-act="dfilter" data-f="'+f[0]+'" aria-pressed="'+(ui.dfilter===f[0])+'">'+f[1]+'</button>';}).join('')+'</div></div>'+body;
@@ -756,6 +770,7 @@ function openEntry(date,meal,i){
   document.getElementById('entry-title').textContent=(d?d.name:'Блюдо')+' · '+wd(date)+' '+dm(date)+', '+MEALS[meal].t.toLowerCase();
   document.getElementById('entry-p').value=num(en.p)||MEALS[meal].p;
   document.getElementById('entry-note').value=en.n||'';
+  setLink('entry-link',d&&d.link);
   document.getElementById('dlg-entry').showModal();
 }
 var rowN=0;
@@ -778,10 +793,13 @@ function togglePrepBox(){document.getElementById('prep-box').style.display=docum
 function openDish(id){
   var d=id?state.dishes.items[id]:null;
   ui.dishId=id||null;
-  var x=d||{e:'',name:'',cat:'whole',meals:[ui.dfilter==='b'||ui.dfilter==='l'?ui.dfilter:'d'],base:'',time:'',ings:[],recipe:'',prep:false,prepType:'semi',acts:[],no:[]};
+  var x=d||{e:'',name:'',cat:'whole',meals:[ui.dfilter==='b'||ui.dfilter==='l'?ui.dfilter:'d'],link:'',nw:ui.dfilter==='new',base:'',time:'',ings:[],recipe:'',prep:false,prepType:'semi',acts:[],no:[]};
   document.getElementById('dish-title').textContent=d?'Карточка блюда':'Новое блюдо';
   document.getElementById('f-emoji').value=x.e||'';
   document.getElementById('f-name').value=x.name||'';
+  document.getElementById('f-link').value=x.link||'';
+  document.getElementById('f-new').checked=!!x.nw;
+  setLink('f-link-a',x.link);
   document.getElementById('f-cat').value=x.cat||'whole';
   MEAL_ORDER.forEach(function(m){document.getElementById('f-meal-'+m).checked=(x.meals||['d']).indexOf(m)>=0;});
   document.getElementById('f-base').value=x.base||'';
@@ -816,6 +834,7 @@ function saveDish(){
   state.dishes.items[id]={
     e:document.getElementById('f-emoji').value.trim(),name:name,cat:document.getElementById('f-cat').value,meals:meals,
     base:document.getElementById('f-base').value.trim().toLowerCase(),time:num(document.getElementById('f-time').value)||0,
+    link:safeUrl(document.getElementById('f-link').value),nw:document.getElementById('f-new').checked,
     ings:ings,recipe:document.getElementById('f-recipe').value.trim(),
     prep:document.getElementById('f-prep').checked,prepType:document.getElementById('f-preptype').value,acts:acts,
     no:EATERS.filter(function(n,i){return document.getElementById('f-no-'+i).checked;})
