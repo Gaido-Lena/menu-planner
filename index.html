@@ -102,6 +102,15 @@ h1,h2,h3{margin:0;text-wrap:balance}
 .chip.new,.card.new,.dcard.new{border-style:dashed;border-left-style:solid}
 .ext{color:var(--accent);font-weight:600;font-size:13.5px}
 .pill.new{background:var(--accent);color:var(--accent-ink)}
+.frost{color:var(--whole);font-weight:700;font-size:12px}
+.card[aria-pressed="true"] .frost{color:inherit}
+.stockbar{background:var(--accent-soft);color:var(--ink);border-radius:10px;padding:9px 12px;margin:0 0 12px;font-size:14px}
+.stockbar b{color:var(--accent)}
+.srow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;background:transparent;border:0;border-top:1px solid var(--line);padding:10px 0}
+.srow:first-child{border-top:0}
+.srow small{display:block;color:var(--muted);font-size:12.5px}
+.srow .q{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.srow:hover b{color:var(--accent)}
 .warn{grid-column:1/-1;margin:0 8px 6px;background:var(--warn-bg);color:var(--warn);font-size:12px;font-weight:600;border-radius:6px;padding:3px 8px}
 
 .palette{position:sticky;top:104px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 124px);overflow:auto}
@@ -197,6 +206,7 @@ legend{font-size:13px;font-weight:700;padding:0 4px}
       <a href="#menu" data-view="menu">Меню для чата</a>
       <a href="#shopping" data-view="shopping">Покупки</a>
       <a href="#prep" data-view="prep">Заготовки</a>
+      <a href="#freezer" data-view="freezer">Морозилка</a>
     </nav>
   </div>
 </header>
@@ -268,6 +278,23 @@ legend{font-size:13px;font-weight:700;padding:0 4px}
   </div>
 </form></dialog>
 
+<dialog id="dlg-stock"><form class="dlg" id="stock-form">
+  <h3 id="stock-title">Что лежит в морозилке</h3>
+  <label class="field" for="s-dish">Для какого блюда
+    <select id="s-dish"></select></label>
+  <label class="field" for="s-name">Подпись на пакете (необязательно)
+    <input id="s-name" type="text" placeholder="Котлеты говяжьи, 4 шт"></label>
+  <div class="two">
+    <label class="field" for="s-p">На сколько порций<input id="s-p" type="number" min="0.5" step="0.5" inputmode="decimal" required></label>
+    <label class="field" for="s-date">Дата заморозки<input id="s-date" type="date"></label>
+  </div>
+  <div class="dlg-foot">
+    <button type="button" class="btn danger" id="stock-del" data-act="stock-del">Убрать из морозилки</button>
+    <span class="row"><button type="button" class="btn ghost" data-act="stock-cancel">Отмена</button>
+    <button type="submit" class="btn primary">Сохранить</button></span>
+  </div>
+</form></dialog>
+
 <dialog id="dlg-confirm"><form class="dlg" method="dialog">
   <h3 id="confirm-text">Точно?</h3>
   <div class="dlg-foot"><button class="btn ghost" value="no">Отмена</button><button class="btn primary" value="yes" id="confirm-yes">Да</button></div>
@@ -291,7 +318,7 @@ var EATERS=['Мама','Папа','Даша'];
 var WD=['ВС','ПН','ВТ','СР','ЧТ','ПТ','СБ'];
 var MON=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
 var COUNT_UNITS=['шт','шт.','уп','уп.','зубчик','пакетик','банка','пачка','ломтик'];
-var KEYS=['dishes','plan','checks'];
+var KEYS=['dishes','plan','checks','stock'];
 var WHEN=[['','в день заготовок'],['1','накануне вечером'],['2','за 2 дня до готовки'],['3','за 3 дня до готовки'],['0','в день готовки']];
 
 function pad(n){return n<10?'0'+n:''+n;}
@@ -306,7 +333,7 @@ function safeUrl(u){u=String(u||'').trim();if(!u)return '';if(!/^https?:\/\//i.t
 function setLink(id,url){var a=document.getElementById(id);url=safeUrl(url);if(url){a.href=url;a.hidden=false;}else{a.removeAttribute('href');a.hidden=true;}}
 function cap(s){s=String(s||'').trim();return s?s.charAt(0).toUpperCase()+s.slice(1):s;}
 
-var state={dishes:{items:{}},plan:{start:fmtD(new Date()),days:14,cells:{}},checks:{shop:{},prep:{}}};
+var state={dishes:{items:{}},plan:{start:fmtD(new Date()),days:14,cells:{}},checks:{shop:{},prep:{}},stock:{items:{}}};
 var ui={view:'plan',armed:null,pmeal:'d',dfilter:'all',shopMode:'all',editing:null,dishId:null};
 var sync={status:'loading',auth:'checking',email:'',uid:null,authMsg:'',lastEmail:'',loaded:{},busy:{},dirty:{},channel:null};
 
@@ -315,6 +342,7 @@ function normalize(k,d){
   if(k==='dishes'){if(!d.items||typeof d.items!=='object')d.items={};}
   if(k==='plan'){if(!d.start)d.start=fmtD(new Date());d.days=Math.min(21,Math.max(7,Math.round(num(d.days))||14));if(!d.cells||typeof d.cells!=='object')d.cells={};}
   if(k==='checks'){if(!d.shop)d.shop={};if(!d.prep)d.prep={};}
+  if(k==='stock'){if(!d.items||typeof d.items!=='object')d.items={};}
   return d;
 }
 
@@ -480,6 +508,36 @@ function entries(){
       });
     });
   });
+  var left=stockByDish();
+  out.forEach(function(e){var st=left[e.en.d]||0;e.cov=Math.min(e.p,st);if(e.cov)left[e.en.d]=st-e.cov;});
+  out.left=left;
+  return out;
+}
+function stockList(){
+  return Object.keys(state.stock.items).map(function(id){var x=state.stock.items[id];x.id=id;return x;})
+    .sort(function(a,b){return String(a.date||'9').localeCompare(String(b.date||'9'))||String(a.name).localeCompare(String(b.name),'ru');});
+}
+function stockByDish(){
+  var m={};
+  Object.keys(state.stock.items).forEach(function(id){var x=state.stock.items[id];if(x.dish&&state.dishes.items[x.dish])m[x.dish]=(m[x.dish]||0)+(num(x.p)||0);});
+  return m;
+}
+/* Does the frozen pack already contain this ingredient? Yes if a prep-day action names it,
+   or if an action has no "what" (the whole kit), or if the dish has no prep at all (frozen ready). */
+function covers(dish,ing){
+  if(!dish.prep)return true;
+  var n=String(ing.n||'').toLowerCase().trim(),hit=false;
+  (dish.acts||[]).forEach(function(a){
+    if(actWhen(a)!=='')return;
+    var w=String(a.w||'').toLowerCase().trim();
+    if(!w||(n&&w.indexOf(n)>=0))hit=true;
+  });
+  return hit;
+}
+function unplannedStock(){
+  var left=entries().left,out=[];
+  Object.keys(left).forEach(function(id){if(left[id]>0)out.push(state.dishes.items[id].name+' — '+String(left[id]).replace('.',',')+' порц.');});
+  stockList().forEach(function(x){if(!x.dish||!state.dishes.items[x.dish])out.push((x.name||'Без названия')+' (блюдо не выбрано)');});
   return out;
 }
 function fmtQty(q,u){
@@ -522,11 +580,12 @@ function shoppingGroups(mode){
       var name=String(ing.n||'').trim();if(!name)return;
       var unit=String(ing.u||'').trim();
       var k=name.toLowerCase()+'|'+unit.toLowerCase();
+      var pp=e.p-(e.cov&&covers(e.dish,ing)?e.cov:0);if(pp<=0)return;
       var key=gk,title=gt,list=order;
       if(ing.late){var buy=addDays(e.date,-1);key='late-'+buy;title='Докупить свежее: '+dayLabel(buy);list=lateOrder;}
       if(!groups[key]){groups[key]={key:key,title:title,items:{}};list.push(key);}
       var it=groups[key].items[k]||(groups[key].items[k]={key:k,name:name.toLowerCase(),unit:unit,q:0,from:{}});
-      it.q+=num(ing.q)*e.p;
+      it.q+=num(ing.q)*pp;
       it.from[e.dish.name]=true;
     });
   });
@@ -544,6 +603,7 @@ function prepBlocks(){
   var blocks={},order=[];
   entries().forEach(function(e){
     if(!e.dish.prep)return;
+    var pp=e.p-e.cov;if(pp<=0)return;
     (e.dish.acts||[]).forEach(function(a){
       if(actWhen(a)!=='')return;
       var verb=cap(a.v);if(!verb)return;
@@ -553,12 +613,12 @@ function prepBlocks(){
       if(q&&what){
         k=vk+'|'+what.toLowerCase()+'|'+unit.toLowerCase();
         it=blocks[vk].items[k]||(blocks[vk].items[k]={key:k,name:what.toLowerCase(),unit:unit,q:0,parts:{}});
-        it.q+=q*e.p;it.parts[e.dish.name]=(it.parts[e.dish.name]||0)+q*e.p;
+        it.q+=q*pp;it.parts[e.dish.name]=(it.parts[e.dish.name]||0)+q*pp;
       }else{
         var label=what?what.toLowerCase()+' ('+e.dish.name+')':e.dish.name;
         k=vk+'|'+label.toLowerCase()+'|p';
         it=blocks[vk].items[k]||(blocks[vk].items[k]={key:k,name:label,unit:'порц.',q:0,parts:null});
-        it.q+=e.p;
+        it.q+=pp;
       }
     });
   });
@@ -586,9 +646,10 @@ function datedTasks(){
     var d=e.dish,forText='для: '+d.name+', '+dayLabel(e.date).toLowerCase();
     (d.ings||[]).forEach(function(ing){
       var n=String(ing.n||'').trim();
-      if(ing.late&&n)add(addDays(e.date,-1),'Купить: '+n.toLowerCase(),num(ing.q)*e.p,String(ing.u||'').trim(),forText);
+      var pp=e.p-(e.cov&&covers(d,ing)?e.cov:0);
+      if(ing.late&&n&&pp>0)add(addDays(e.date,-1),'Купить: '+n.toLowerCase(),num(ing.q)*pp,String(ing.u||'').trim(),forText);
     });
-    if(!d.prep)return;
+    if(!d.prep){if(e.cov>0)add(addDays(e.date,-1),'Переложить из морозилки в холодильник: '+d.name,0,'',forText);return;}
     var frozen=false,thaw=false;
     (d.acts||[]).forEach(function(a){
       var txt=(a.v||'')+' '+(a.w||''),t=actWhen(a),verb=cap(a.v);
@@ -598,7 +659,7 @@ function datedTasks(){
       var what=String(a.w||'').trim(),q=num(a.q);
       add(addDays(e.date,-(+t||0)),verb+': '+(what?what.toLowerCase():d.name),what&&q?q*e.p:0,String(a.u||'').trim(),forText);
     });
-    if(frozen&&!thaw)add(addDays(e.date,-1),'Переложить из морозилки в холодильник: '+d.name,0,'',forText);
+    if((frozen||e.cov>0)&&!thaw)add(addDays(e.date,-1),'Переложить из морозилки в холодильник: '+d.name,0,'',forText);
   });
   var byDate={},dates=[];
   Object.keys(map).forEach(function(k){var it=map[k];if(!byDate[it.date]){byDate[it.date]=[];dates.push(it.date);}byDate[it.date].push(it);});
@@ -646,6 +707,7 @@ function render(){
   else if(ui.view==='menu')html=renderMenu();
   else if(ui.view==='shopping')html=renderShop();
   else if(ui.view==='prep')html=renderPrep();
+  else if(ui.view==='freezer')html=renderFreezer();
   else html=renderPlan();
   view.innerHTML=html;
   fillDatalists();
@@ -654,12 +716,16 @@ function chipHTML(e,date,meal,i){
   var d=state.dishes.items[e.d];
   if(!d)return '';
   var p=num(e.p)||MEALS[meal].p;
-  var extra=(p!==MEALS[meal].p?'<small>×'+String(p).replace('.',',')+'</small>':'')+(e.n?'<small>'+esc(e.n)+'</small>':'');
+  var extra=(ui._cov&&ui._cov[date+meal+i]?'<small class="frost" title="Из морозилки">❄</small>':'')+(p!==MEALS[meal].p?'<small>×'+String(p).replace('.',',')+'</small>':'')+(e.n?'<small>'+esc(e.n)+'</small>':'');
   return '<button type="button" class="chip'+(d.nw?' new':'')+'" draggable="true" data-cat="'+esc(d.cat)+'" data-act="entry" data-date="'+date+'" data-meal="'+meal+'" data-i="'+i+'" title="Порции и пометка">'+
     '<span>'+esc((d.e?d.e+' ':'')+d.name)+'</span>'+extra+'</button>';
 }
 function renderPlan(){
   var today=fmtD(new Date()),warns=dayWarnings(),g='';
+  ui._cov={};entries().forEach(function(x){if(x.cov)ui._cov[x.date+x.meal+x.i]=x.cov;});
+  ui._stock=stockByDish();
+  var un=unplannedStock();
+  var bar=un.length?'<p class="stockbar"><b>В морозилке лежит и ещё не стоит в плане:</b> '+esc(un.join('; '))+'</p>':'';
   weeks().forEach(function(w,wi){
     g+='<div class="wk">Неделя '+(wi+1)+' · '+range(w[0],w[w.length-1])+'</div>';
     w.forEach(function(date){
@@ -672,6 +738,7 @@ function renderPlan(){
     });
   });
   var list=dishList().filter(function(d){return (d.meals||['d']).indexOf(ui.pmeal)>=0;});
+  list.sort(function(a,b){return (ui._stock[b.id]?1:0)-(ui._stock[a.id]?1:0);});
   var pal='';
   if(!list.length)pal='<p class="hint">Для этого приёма пищи блюд пока нет. Добавьте их в разделе «Блюда».</p>';
   else if(ui.pmeal==='d'){
@@ -686,7 +753,7 @@ function renderPlan(){
     '<div class="pset"><label class="field" for="p-start">Начало<input id="p-start" type="date" value="'+esc(state.plan.start)+'"></label>'+
     '<label class="field" for="p-days">Дней<input id="p-days" type="number" min="7" max="21" value="'+state.plan.days+'"></label>'+
     '<button type="button" class="btn danger" data-act="clear-plan">Очистить план</button></div></div>'+
-    '<div class="plan'+(armed?' armed':'')+'"><div class="grid">'+g+'</div>'+
+    bar+'<div class="plan'+(armed?' armed':'')+'"><div class="grid">'+g+'</div>'+
     '<aside class="palette" aria-label="Блюда"><div class="seg" role="group" aria-label="Приём пищи">'+
       ['d','b','l'].map(function(m){return '<button type="button" data-act="pmeal" data-meal="'+m+'" aria-pressed="'+(ui.pmeal===m)+'">'+({d:'Ужины',b:'Завтраки',l:'Обеды'})[m]+'</button>';}).join('')+'</div>'+
       (armed?'<p class="hint on">Выбрано: '+esc(armed.name)+'. Нажимайте на дни, куда его поставить. Esc снимает выбор.</p>'
@@ -694,7 +761,7 @@ function renderPlan(){
       pal+'</aside></div>';
 }
 function cardHTML(d){
-  return '<button type="button" class="card'+(d.nw?' new':'')+'" draggable="true" data-cat="'+esc(d.cat)+'" data-act="arm" data-id="'+esc(d.id)+'" aria-pressed="'+(ui.armed===d.id)+'"'+(d.nw?' title="Ещё не готовили"':'')+'>'+esc((d.e?d.e+' ':'')+d.name)+(d.nw?' ✦':'')+'</button>';
+  return '<button type="button" class="card'+(d.nw?' new':'')+'" draggable="true" data-cat="'+esc(d.cat)+'" data-act="arm" data-id="'+esc(d.id)+'" aria-pressed="'+(ui.armed===d.id)+'"'+(d.nw?' title="Ещё не готовили"':'')+'>'+esc((d.e?d.e+' ':'')+d.name)+(d.nw?' ✦':'')+(ui._stock&&ui._stock[d.id]?' <span class="frost" title="Есть в морозилке, порций">❄ '+String(ui._stock[d.id]).replace('.',',')+'</span>':'')+'</button>';
 }
 function renderDishes(){
   var all=dishList();
@@ -767,6 +834,36 @@ function renderPrep(){
     (total?'':'<div class="empty">Здесь появятся задачи по блюдам из плана, у которых в карточке отмечено «Можно сделать заготовку» и расписаны действия.</div>')+
     (a?'<h3 class="sec">В день заготовок</h3><div class="sheet">'+a+'</div>':'')+
     (b?'<h3 class="sec">По датам</h3><div class="sheet">'+b+'</div>':'');
+}
+function renderFreezer(){
+  var list=stockList(),today=fmtD(new Date()),un=unplannedStock();
+  var body=list.length?'<div class="sheet">'+list.map(function(x){
+    var d=x.dish&&state.dishes.items[x.dish];
+    var age=x.date?Math.max(0,Math.round((parseD(today)-parseD(x.date))/864e5)):null;
+    return '<button type="button" class="srow" data-act="stock-edit" data-id="'+esc(x.id)+'"><span><b>'+esc(x.name||(d?d.name:'Без названия'))+'</b>'+
+      '<small>'+(d?'для блюда: '+esc(d.name):'блюдо не выбрано')+(x.date?' · заморожено '+dm(x.date)+(age!==null?', '+age+' дн. назад':''):'')+'</small></span>'+
+      '<span class="q">'+esc(String(num(x.p)||0).replace('.',','))+' порц.</span></button>';
+  }).join('')+'</div>':'<div class="empty">Сюда записывается то, что осталось в морозилке после заготовок. Блюда из этого списка показываются в плане первыми, а то, что уже заморожено, не попадает в покупки и заготовки.</div>';
+  return '<div class="view-head"><div><h2>Морозилка</h2><p class="sub">Запас считается в плане в первую очередь. Когда пакет съеден, уберите его отсюда или уменьшите число порций.</p></div>'+
+    '<button type="button" class="btn primary" data-act="stock-new">+ Добавить</button></div>'+
+    (un.length?'<p class="stockbar" style="max-width:720px"><b>Ещё не стоит в плане:</b> '+esc(un.join('; '))+'</p>':'')+body;
+}
+function openStock(id){
+  var x=id?state.stock.items[id]:null;
+  ui.stockId=id||null;
+  document.getElementById('s-dish').innerHTML='<option value="">— не выбрано —</option>'+dishList().map(function(d){return '<option value="'+esc(d.id)+'">'+esc(d.name)+'</option>';}).join('');
+  document.getElementById('s-dish').value=x&&x.dish&&state.dishes.items[x.dish]?x.dish:'';
+  document.getElementById('s-name').value=x?x.name||'':'';
+  document.getElementById('s-p').value=x?num(x.p)||'':3;
+  document.getElementById('s-date').value=x?x.date||'':fmtD(new Date());
+  document.getElementById('stock-del').style.visibility=x?'visible':'hidden';
+  document.getElementById('dlg-stock').showModal();
+}
+function saveStock(){
+  var dish=document.getElementById('s-dish').value,name=document.getElementById('s-name').value.trim();
+  if(!dish&&!name){toast('Выберите блюдо или напишите, что это');return;}
+  state.stock.items[ui.stockId||uid()]={name:name,dish:dish,p:Math.max(0.5,num(document.getElementById('s-p').value)||1),date:document.getElementById('s-date').value||''};
+  save('stock');document.getElementById('dlg-stock').close();render();
 }
 function listText(kind){
   var t='';
@@ -949,10 +1046,15 @@ document.addEventListener('click',function(ev){
     confirmBox('Удалить «'+state.dishes.items[id].name+'» из базы и из плана?','Удалить',function(){
       delete state.dishes.items[id];
       Object.keys(state.plan.cells).forEach(function(d){MEAL_ORDER.forEach(function(m){var c=state.plan.cells[d][m];if(c)state.plan.cells[d][m]=c.filter(function(e){return e.d!==id;});});});
+      Object.keys(state.stock.items).forEach(function(k){if(state.stock.items[k].dish===id){state.stock.items[k].dish='';save('stock');}});
       if(ui.armed===id)ui.armed=null;
       save('dishes');save('plan');render();
     });
   }
+  else if(a==='stock-new'){openStock(null);}
+  else if(a==='stock-edit'){openStock(el.dataset.id);}
+  else if(a==='stock-cancel'){document.getElementById('dlg-stock').close();}
+  else if(a==='stock-del'){if(ui.stockId){delete state.stock.items[ui.stockId];save('stock');}document.getElementById('dlg-stock').close();render();}
   else if(a==='add-ing'){document.getElementById('f-ings').insertAdjacentHTML('beforeend',ingRow());}
   else if(a==='add-act'){document.getElementById('f-acts').insertAdjacentHTML('beforeend',actRow());}
   else if(a==='row-del'){el.parentNode.remove();}
@@ -986,6 +1088,7 @@ document.getElementById('entry-form').addEventListener('submit',function(ev){
   }
   document.getElementById('dlg-entry').close();render();
 });
+document.getElementById('stock-form').addEventListener('submit',function(ev){ev.preventDefault();saveStock();});
 document.getElementById('dish-form').addEventListener('submit',function(ev){ev.preventDefault();saveDish();});
 document.addEventListener('keydown',function(ev){
   if(ev.key==='Escape'&&ui.armed&&!document.querySelector('dialog[open]')){ui.armed=null;render();}
@@ -1020,7 +1123,7 @@ document.addEventListener('drop',function(ev){
 /* routing */
 function route(){
   var h=(location.hash||'').replace('#','');
-  ui.view=['plan','dishes','menu','shopping','prep'].indexOf(h)>=0?h:'plan';
+  ui.view=['plan','dishes','menu','shopping','prep','freezer'].indexOf(h)>=0?h:'plan';
   render();
 }
 window.addEventListener('hashchange',route);

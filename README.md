@@ -5,7 +5,7 @@
 ## Как устроено
 
 - `index.html` — всё приложение в одном файле, без сборки. Открывается через GitHub Pages.
-- Данные лежат в Supabase (проект `menu-planner`), таблица `public.planner_docs`: три строки — `dishes` (блюда), `plan` (план), `checks` (отметки в списках).
+- Данные лежат в Supabase (проект `menu-planner`), таблица `public.planner_docs`: четыре строки — `dishes` (блюда), `plan` (план), `checks` (отметки в списках), `stock` (запас в морозилке).
 - Вход по почте и паролю (Supabase Auth). Данные видят и меняют только почты из таблицы `private.allowed_emails`.
 - `supabase/migrations/` — схема базы.
 
